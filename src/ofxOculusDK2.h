@@ -108,6 +108,7 @@ class ofxOculusDK2
 	ofQuaternion getOrientationQuat();
 	ofMatrix4x4 getOrientationMat();
     ofVec3f getTranslation();
+    ofMatrix4x4 getFullHeadPose();
 	
 	//default 1 has more constrained mouse movement,
 	//while turning it up increases the reach of the mouse
