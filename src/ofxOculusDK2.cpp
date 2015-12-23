@@ -468,16 +468,23 @@ void ofxOculusDK2::fullscreenOnRift() {
     
     // Grab the active displays
     CGGetActiveDisplayList(32, displays, &displayCount);
-    int numDisplays= displayCount;
     
-    // If two displays present, use the 2nd one. If one, use the first.
-    int whichDisplay = hmd->DisplayId;
+    // Figure out which display the Oculus is on
+    int whichDisplay = 0;
+    for (int i = 0; i < displayCount; ++i) {
+        CGRect displayBounds = CGDisplayBounds ( displays[i] );
+        if (hmd->WindowsPos.x == displayBounds.origin.x &&
+            hmd->WindowsPos.y == displayBounds.origin.y &&
+            hmd->Resolution.w == displayBounds.size.width &&
+            hmd->Resolution.h == displayBounds.size.height) {
+            whichDisplay = i;
+            break;
+        }
+    }
     
-    int displayHeight= CGDisplayPixelsHigh ( displays[whichDisplay] );
-    int displayWidth= CGDisplayPixelsWide ( displays[whichDisplay] );
-    CGRect displayBounds= CGDisplayBounds ( displays[whichDisplay] );
+    CGRect displayBounds = CGDisplayBounds ( displays[whichDisplay] );
     
-    ofRectangle riftDisplay = ofRectangle(displayBounds.origin.x, displayBounds.origin.y, displayWidth, displayHeight);
+    ofRectangle riftDisplay = ofRectangle(displayBounds.origin.x, displayBounds.origin.y, displayBounds.size.width, displayBounds.size.height);
     
     ofSetWindowShape(riftDisplay.width, riftDisplay.height);
     ofSetWindowPosition(riftDisplay.x+1, riftDisplay.y+1);
@@ -671,6 +678,31 @@ ofQuaternion ofxOculusDK2::getOrientationQuat(){
 		return toOf(ts.HeadPose.ThePose.Orientation);
 	}
 	 return ofQuaternion();
+}
+
+ofVec3f ofxOculusDK2::getTranslation(){
+
+    ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+    if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
+        return toOf(ts.HeadPose.ThePose.Position);
+    }
+    return ofVec3f();
+}
+
+// This returns the pose of the head (the inverse of its viewing transform).
+// This is useful if you want to draw it in another view.
+ofMatrix4x4 ofxOculusDK2::getFullHeadPose(){
+    ofMatrix4x4 baseCameraPose = baseCamera->getModelViewMatrix().getInverse();
+    ofMatrix4x4 hmdPose;
+    
+    // head orientation and position
+    ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+    if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
+        hmdPose = ofMatrix4x4::newRotationMatrix( toOf(ts.HeadPose.ThePose.Orientation)) * ofMatrix4x4::newTranslationMatrix( toOf(ts.HeadPose.ThePose.Position));
+    }
+
+    // return the composed result
+    return hmdPose * baseCameraPose;
 }
 
 ofMatrix4x4 ofxOculusDK2::getProjectionMatrix(ovrEyeType eye) {
